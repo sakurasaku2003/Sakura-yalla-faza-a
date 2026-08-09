@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مؤقتات الأحداث</title>
+  <style>
+    :root {
+      --bg-color: #0f172a;
+      --card-bg: #1e293b;
+      --accent: #38bdf8;
+      --danger: #ef4444;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --border: #334155;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      /* خط الآيفون لجميع عناصر التطبيق */
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 13px !important; /* حجم الخط ثابت 13px لكل التطبيق */
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text);
+      padding: 10px;
+      direction: rtl;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* رأس القوائم والتنقل */
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      gap: 5px;
+    }
+
+    select, button, input {
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--card-bg);
+      color: var(--text);
+      outline: none;
+    }
+
+    button {
+      cursor: pointer;
+      background: #2563eb;
+      color: white;
+      border: none;
+    }
+
+    button.danger {
+      background: var(--danger);
+    }
+
+    button.secondary {
+      background: #475569;
+    }
+
+    /* الخلايا العلوية للتصنيفات (بدون فراغات كبيرة) */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 10px;
+      gap: 0; /* تقارب الخانات */
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      flex: 1;
+      text-align: center;
+      padding: 8px 4px;
+      background: #1e293b;
+      border: 1px solid var(--border);
+      border-bottom: none;
+      border-radius: 6px 6px 0 0;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .tab-btn.active {
+      background: var(--accent);
+      color: #000;
+      font-weight: bold;
+    }
+
+    /* نمط إضافة حدث جديد */
+    .add-form {
+      background: var(--card-bg);
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+    }
+
+    .form-row label {
+      min-width: 50px;
+    }
+
+    .time-inputs {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .time-field {
+      display: flex;
+      align-items: center;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+    }
+
+    .time-field input {
+      width: 35px;
+      text-align: center;
+      border: none;
+      background: transparent;
+      padding: 4px 2px;
+    }
+
+    .btn-step {
+      background: #334155;
+      padding: 2px 6px;
+      border-radius: 2px;
+      user-select: none;
+    }
+
+    /* قائمة المؤقتات */
+    .timer-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px; /* متقاربة جداً وبدون فراغات واسعة */
+    }
+
+    .timer-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      padding: 8px 10px;
+      border-radius: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* التمييز باللون الأحمر للأحداث التي تنتهي في نفس الوقت بالضبط */
+    .timer-card.duplicate-time {
+      border: 1px solid var(--danger);
+      background: #450a0a;
+    }
+
+    .event-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .event-name {
+      font-weight: bold;
+    }
+
+    .event-category {
+      color: var(--text-muted);
+    }
+
+    .timer-display {
+      text-align: left;
+    }
+
+    .countdown-text {
+      font-weight: bold;
+      color: var(--accent);
+    }
+
+    .finish-time {
+      color: var(--text-muted);
+    }
+
+    .read-only-notice {
+      background: #b45309;
+      color: white;
+      padding: 6px;
+      text-align: center;
+      border-radius: 6px;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  
+  <div id="readOnlyBanner" class="read-only-notice" style="display: none;">
+    وضع العرض المشارك (يتم عرض المؤقت الحالي والقادم فقط)
+  </div>
+
+  <!-- إدارة القوائم والمشاركة -->
+  <div class="header-bar" id="adminHeader">
+    <div style="display: flex; gap: 5px; align-items: center;">
+      <select id="listSelect" onchange="switchList(this.value)"></select>
+      <button onclick="createNewList()">+ قائمة</button>
+    </div>
+    <div style="display: flex; gap: 5px;">
+      <button onclick="shareCurrentList()" style="background: #10b981;">مشاركة الرابط</button>
+      <button class="danger" onclick="confirmDeleteAll()">حذف الكل</button>
+    </div>
+  </div>
+
+  <!-- تصنيفات الخلايا العلوية (متقاربة ومفصوله) -->
+  <div class="tabs">
+    <div class="tab-btn active" onclick="setCategory('الكل')">الكل</div>
+    <div class="tab-btn" onclick="setCategory('إكسسوار')">إكسسوار</div>
+    <div class="tab-btn" onclick="setCategory('مهارة')">مهارة</div>
+    <div class="tab-btn" onclick="setCategory('عتاد')">عتاد</div>
+    <div class="tab-btn" onclick="setCategory('تشكيلة')">تشكيلة</div>
+  </div>
+
+  <!-- نموذج إضافة حدث (إدخال الوقت: ساعات / دقائق / ثواني بشكل منفصل) -->
+  <div class="add-form" id="addForm">
+    <div class="form-row">
+      <input type="text" id="eventName" placeholder="اسم الحدث..." style="flex: 1;">
+      <select id="eventCategory">
+        <option value="إكسسوار">إكسسوار</option>
+        <option value="مهارة">مهارة</option>
+        <option value="عتاد">عتاد</option>
+        <option value="تشكيلة">تشكيلة</option>
+      </select>
+    </div>
+
+    <div class="form-row" style="justify-content: space-between;">
+      <div class="time-inputs">
+        <!-- الساعات -->
+        <div class="time-field">
+          <button class="btn-step" onclick="adj('h', -1)">-</button>
+          <input type="number" id="hrs" value="0" min="0">
+          <button class="btn-step" onclick="adj('h', 1)">+</button>
+        </div>
+        <span>س</span>
+
+        <!-- الدقائق -->
+        <div class="time-field">
+          <button class="btn-step" onclick="adj('m', -1)">-</button>
+          <input type="number" id="mins" value="10" min="0" max="59">
+          <button class="btn-step" onclick="adj('m', 1)">+</button>
+        </div>
+        <span>د</span>
+
+        <!-- الثواني -->
+        <div class="time-field">
+          <button class="btn-step" onclick="adj('s', -1)">-</button>
+          <input type="number" id="secs" value="0" min="0" max="59">
+          <button class="btn-step" onclick="adj('s', 1)">ث</button>
+        </div>
+      </div>
+
+      <button onclick="addEvent()">إضافة مؤقت</button>
+    </div>
+  </div>
+
+  <!-- قائمة العرض -->
+  <div class="timer-list" id="timerList"></div>
+
+</div>
+
+<script>
+  // تهيئة البيانات والذاكرة المحلية
+  let appData = JSON.parse(localStorage.getItem('app_timers_data')) || {
+    activeListIndex: 0,
+    lists: [{ name: "القائمة الرئيسية", events: [] }]
+  };
+
+  let currentCategory = 'الكل';
+  let isSharedMode = false;
+
+  // فحص ما إذا كان الرابط يحتوي على بيانات مشاركة
+  window.onload = function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const sharedData = urlParams.get('data');
+    
+    if (sharedData) {
+      try {
+        const decoded = JSON.parse(decodeURIComponent(escape(atob(sharedData))));
+        appData.lists = [{ name: "قائمة مشاركة", events: decoded }];
+        appData.activeListIndex = 0;
+        isSharedMode = true;
+        document.getElementById('adminHeader').style.display = 'none';
+        document.getElementById('addForm').style.display = 'none';
+        document.getElementById('readOnlyBanner').style.display = 'block';
+      } catch(e) {
+        console.error("رابط غير صالحة");
+      }
+    }
+
+    renderListsDropdown();
+    render();
+    setInterval(render, 1000); // تحديث عد تنازلي حي كل ثانية
+  };
+
+  function saveData() {
+    if (!isSharedMode) {
+      localStorage.setItem('app_timers_data', JSON.stringify(appData));
+    }
+  }
+
+  // التحكم بالزيادة والنقصان للوقت
+  function adj(type, val) {
+    let el = document.getElementById(type === 'h' ? 'hrs' : type === 'm' ? 'mins' : 'secs');
+    let v = parseInt(el.value) || 0;
+    v += val;
+    if (v < 0) v = 0;
+    if ((type === 'm' || type === 's') && v > 59) v = 59;
+    el.value = v;
+  }
+
+  // إضافة حدث جديد
+  function addEvent() {
+    const name = document.getElementById('eventName').value || 'حدث بدون عنوان';
+    const cat = document.getElementById('eventCategory').value;
+    const h = parseInt(document.getElementById('hrs').value) || 0;
+    const m = parseInt(document.getElementById('mins').value) || 0;
+    const s = parseInt(document.getElementById('secs').value) || 0;
+
+    const totalMs = ((h * 3600) + (m * 60) + s) * 1000;
+    if (totalMs <= 0) return;
+
+    const endTime = Date.now() + totalMs;
+
+    appData.lists[appData.activeListIndex].events.push({
+      id: Date.now(),
+      name: name,
+      category: cat,
+      endTime: endTime
+    });
+
+    document.getElementById('eventName').value = '';
+    saveData();
+    render();
+  }
+
+  // تغيير الخلايا/التصنيفات
+  function setCategory(cat) {
+    currentCategory = cat;
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.innerText === cat);
+    });
+    render();
+  }
+
+  // إدارة القوائم المتعددة
+  function renderListsDropdown() {
+    const sel = document.getElementById('listSelect');
+    sel.innerHTML = '';
+    appData.lists.forEach((l, i) => {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.innerText = l.name;
+      opt.selected = (i === appData.activeListIndex);
+      sel.appendChild(opt);
+    });
+  }
+
+  function createNewList() {
+    const name = prompt("أدخل اسم القائمة الجديدة:");
+    if (name) {
+      appData.lists.push({ name: name, events: [] });
+      appData.activeListIndex = appData.lists.length - 1;
+      saveData();
+      renderListsDropdown();
+      render();
+    }
+  }
+
+  function switchList(index) {
+    appData.activeListIndex = parseInt(index);
+    saveData();
+    render();
+  }
+
+  // تأكيد "حذف الكل"
+  function confirmDeleteAll() {
+    if (confirm("هل أنت تأكد من انك تريد حذف جميع المؤقتات في هذه القائمة؟")) {
+      appData.lists[appData.activeListIndex].events = [];
+      saveData();
+      render();
+    }
+  }
+
+  // حذف عنصر واحد
+  function deleteEvent(id) {
+    appData.lists[appData.activeListIndex].events = appData.lists[appData.activeListIndex].events.filter(e => e.id !== id);
+    saveData();
+    render();
+  }
+
+  // مشاركة القائمة عبر رابط مباشر
+  function shareCurrentList() {
+    const events = appData.lists[appData.activeListIndex].events;
+    const jsonStr = JSON.stringify(events);
+    const encoded = btoa(unescape(encodeURIComponent(jsonStr)));
+    const shareUrl = window.location.origin + window.location.pathname + '?data=' + encoded;
+    
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      alert("تم نسخ رابط المشاركة المباشرة للحافظة!");
+    }).catch(() => {
+      prompt("انسخ الرابط التالي للمشاركة:", shareUrl);
+    });
+  }
+
+  // العرض والتصنيف الحسابي
+  function render() {
+    const listContainer = document.getElementById('timerList');
+    listContainer.innerHTML = '';
+
+    let events = appData.lists[appData.activeListIndex]?.events || [];
+
+    // التصفية حسب التصنيف العلوية
+    if (currentCategory !== 'الكل') {
+      events = events.filter(e => e.category === currentCategory);
+    }
+
+    // ترتيب الأحداث حسب الأقرب انتهاءً
+    events.sort((a, b) => a.endTime - b.endTime);
+
+    // في وضع المشاركة: إظهار المؤقت الحالي والذي بعده فقط
+    if (isSharedMode) {
+      const now = Date.now();
+      events = events.filter(e => e.endTime > now).slice(0, 2);
+    }
+
+    // تحديد الأحداث التي ينتهي وقتها بالساعة الحقيقية في نفس الدقيقة/الالوقت (لتلوينها بالأحمر)
+    const timeCounts = {};
+    events.forEach(e => {
+      const finishTimeString = new Date(e.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      timeCounts[finishTimeString] = (timeCounts[finishTimeString] || 0) + 1;
+    });
+
+    events.forEach(e => {
+      const now = Date.now();
+      const diff = e.endTime - now;
+
+      // حساب الوقت المتبقي
+      let countdownStr = "انتهى الوقت";
+      if (diff > 0) {
+        const hrs = Math.floor(diff / 3600000);
+        const mins = Math.floor((diff % 3600000) / 60000);
+        const secs = Math.floor((diff % 60000) / 1000);
+        countdownStr = `${hrs}س : ${mins}د : ${secs}ث`;
+      }
+
+      // حساب وقت الانتهاء بالساعة الحقيقية
+      const finishDate = new Date(e.endTime);
+      const finishTimeString = finishDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+      // فحص إذا كان الوقت مكرر لتلوينه بالأحمر
+      const shortTimeString = finishDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const isDuplicate = timeCounts[shortTimeString] > 1;
+
+      const card = document.createElement('div');
+      card.className = `timer-card ${isDuplicate ? 'duplicate-time' : ''}`;
+      
+      card.innerHTML = `
+        <div class="event-info">
+          <span class="event-name">${e.name}</span>
+          <span class="event-category">${e.category}</span>
+        </div>
+        <div class="timer-display">
+          <div class="countdown-text">${countdownStr}</div>
+          <div class="finish-time">ينتهي: ${finishTimeString}</div>
+        </div>
+        ${!isSharedMode ? `<button class="danger" style="padding: 2px 6px;" onclick="deleteEvent(${e.id})">X</button>` : ''}
+      `;
+
+      listContainer.appendChild(card);
+    });
+  }
+</script>
+
+</body>
+</html>
